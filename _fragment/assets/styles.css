@@ -1,0 +1,99 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #000;
+  overflow: hidden;
+}
+
+body {
+  position: relative;
+}
+
+#activeArea {
+  position: relative;
+  width: 100vw;
+  height: 300px;
+  background-color: #030620;
+  overflow: visible;
+  z-index: 1; /* Ensure activeArea is below the floating balls */
+}
+
+#horizon {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), rgba(3, 6, 32, 0));
+  filter: blur(8px);
+  pointer-events: none;
+  z-index: 3; /* Ensure horizon is above the floating balls */
+}
+
+#logo {
+  width: 150px;
+  height: 150px;
+  position: absolute;
+  top: 110px;
+  left: 50%;
+  transform: translate(-50%, 0);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  z-index: 5;
+  filter:
+    drop-shadow(-6px 6px 4px rgba(0,0,0,0.6))
+    drop-shadow(0px 12px 20px rgba(0,0,0,0.3));
+  animation: floatLogo 3s ease-in-out infinite;
+}
+
+#tooltip {
+  position: absolute;
+  bottom: calc(50% + 70px);
+  left: -40px;
+  transform: translate(0, 50%);
+  background: #ffffff; /* bright yellow */
+  color: #001f4d; /* deep blue */
+  padding: 8px 14px;
+  border-radius: 12px 12px 0 12px; /* top-right corner is square */
+  font-size: 14px;
+  font-family: "Segoe UI", sans-serif;
+  font-weight: 600;
+  white-space: nowrap;
+  animation: floatTip 2.5s ease-in-out infinite;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 6;
+}
+
+#starsCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2; /* Place stars behind the horizon but above the active area */
+  pointer-events: none;
+}
+
+@keyframes floatTip {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-4px);
+  }
+}
+
+@keyframes floatLogo {
+  0%, 100% {
+    transform: translate(-50%, 0);
+  }
+  50% {
+    transform: translate(-50%, -6px);
+  }
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2; /* Floating balls layer */
+  pointer-events: none;
+}

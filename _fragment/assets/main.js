@@ -9,15 +9,14 @@ const tooltip = document.getElementById('tooltip');
 
 let isDragging = false;
 let isInActiveArea = false;
+let isFalling = false;
 let mouseX = 0;
 let mouseY = 0;
 let logoX = window.innerWidth / 2;
 let logoY = activeArea.getBoundingClientRect().top + 110;
-let vx = 0;
-let vy = 0;
 const delay = 0.15;
 
-const colors = ['fuchsia', 'turquoise', 'yellow'];
+const colors = ['fuchsia', 'turquoise', 'pink', 'violet'];
 let particles = [];
 
 class Particle {
@@ -48,7 +47,8 @@ class Particle {
     const map = {
       fuchsia: '255,0,255',
       turquoise: '64,224,208',
-      yellow: '255,255,0'
+      pink: '255,192,203',
+      violet: '238,130,238'
     };
     return map[color] || '255,255,255';
   }
@@ -62,7 +62,8 @@ class Particle {
 
 function emitParticles(x, y) {
   for (let i = 0; i < 5; i++) {
-    particles.push(new Particle(x, y));
+    const offsetY = Math.random() * 50 - 25; // Random vertical offset within 50px range
+    particles.push(new Particle(x - 10, y + offsetY)); // Move emission source 20px right
   }
 }
 
@@ -76,6 +77,7 @@ document.addEventListener('mousemove', (e) => {
 
   if (!isInActiveArea && isDragging) {
     isDragging = false;
+    isFalling = true;
     fallBounce();
   }
 });
@@ -85,13 +87,12 @@ logo.addEventListener('mouseenter', () => {
   tooltip.style.display = 'none';
 });
 
-logo.addEventListener('mouseleave', () => {
-  // Do nothing
-});
-
 logo.addEventListener('click', () => {
-  isDragging = false;
-  fallBounce();
+  if (!isFalling) {
+    isDragging = false;
+    isFalling = true;
+    fallBounce();
+  }
 });
 
 function fallBounce() {
@@ -99,33 +100,36 @@ function fallBounce() {
   const areaBounds = activeArea.getBoundingClientRect();
   const areaBottom = areaBounds.bottom;
   const areaTop = areaBounds.top;
-  const logoBottom = logoY + logoHeight;
-  const mouseNearBottom = (mouseY > areaBottom - logoHeight);
+  const mouseNearBottom = mouseY > areaBottom - logoHeight;
 
   let bounceY = logoY;
-  let velocity = mouseNearBottom ? -18 : 0; // up or down
+  let velocity = mouseNearBottom ? -18 : 0;
   const gravity = mouseNearBottom ? -0.6 : 0.7;
   const damping = 0.6;
 
   const targetFloor = mouseNearBottom
-    ? areaTop + 90 // bounce up max
-    : areaBottom - logoHeight - 10; // bounce down target
+    ? areaTop + 90
+    : areaBottom - logoHeight - 10;
+
+  let bounceOnce = false;
 
   function drop() {
     velocity += gravity;
     bounceY += velocity;
 
-    // Limit bounce range
     if (mouseNearBottom) {
       if (bounceY <= targetFloor) {
         bounceY = targetFloor;
         velocity *= -damping;
 
         if (Math.abs(velocity) < 1) {
-          bounceY = targetFloor;
-          logo.style.top = `${bounceY}px`;
-          logoY = bounceY;
-          return;
+          if (!bounceOnce) {
+            velocity = 6;
+            bounceOnce = true;
+          } else {
+            finishBounce();
+            return;
+          }
         }
       }
     } else {
@@ -134,10 +138,13 @@ function fallBounce() {
         velocity *= -damping;
 
         if (Math.abs(velocity) < 1) {
-          bounceY = targetFloor;
-          logo.style.top = `${bounceY}px`;
-          logoY = bounceY;
-          return;
+          if (!bounceOnce) {
+            velocity = -8;
+            bounceOnce = true;
+          } else {
+            finishBounce();
+            return;
+          }
         }
       }
     }
@@ -145,39 +152,102 @@ function fallBounce() {
     logo.style.top = `${bounceY}px`;
     logoY = bounceY;
 
-    // Bokeh jet on upward bounce
-    if (mouseNearBottom) {
-      for (let i = 0; i < 10; i++) {
-        particles.push(new Particle(logoX + Math.random() * 20 - 10, bounceY));
+    if (mouseNearBottom && !bounceOnce) {
+      bounceOnce = true; // Ensure particles eject only once
+      for (let i = 0; i < 15; i++) { // Reduce particle count
+        const angle = Math.random() * Math.PI * 2; // Random angle for circular pattern
+        const radius = Math.random() * 100; // Increase radius for wider dispersion
+        const offsetX = Math.cos(angle) * radius;
+        const offsetY = Math.sin(angle) * radius;
+        const particle = new Particle(logoX + offsetX, bounceY + offsetY);
+        particle.radius = Math.random() * 10 + 1; // Wider range of sizes, including smaller ones
+        particle.alpha = Math.random() * 0.8 + 0.2; // Varying initial opacity
+        particle.alphaDecay = 0.008; // Lingering longer
+        particles.push(particle);
       }
     }
 
     requestAnimationFrame(drop);
   }
 
+  function finishBounce() {
+    logo.style.top = `${targetFloor}px`;
+    logoY = targetFloor;
+    isFalling = false;
+
+    tooltip.style.display = "block";
+    tooltip.style.opacity = "1";
+    tooltip.style.transform = "translate(0, 50%)";
+  }
+
   drop();
 }
 
+class BackgroundParticle {
+  constructor() {
+    this.x = Math.random() * canvas.width;
+    this.y = Math.random() * canvas.height;
+    this.radius = Math.random() * 50 + 10; // Random diameter
+    this.color = colors[Math.floor(Math.random() * colors.length)];
+    this.alpha = Math.random() * 0.1 + 0.05; // Lower opacity
+    this.dy = Math.random() * 0.5 + 0.1; // Slow floating speed
+  }
+
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${this.getRGB(this.color)},${this.alpha})`;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 50; // Increased glow
+    ctx.fill();
+  }
+
+  getRGB(color) {
+    const map = {
+      fuchsia: '255,0,255',
+      turquoise: '64,224,208',
+      pink: '255,192,203',
+      violet: '238,130,238'
+    };
+    return map[color] || '255,255,255';
+  }
+
+  update() {
+    this.y += this.dy;
+    if (this.y - this.radius > canvas.height) {
+      this.y = -this.radius; // Reset to top when it goes out of view
+      this.x = Math.random() * canvas.width; // Randomize x position
+    }
+  }
+}
+
+const backgroundParticles = Array.from({ length: 20 }, () => new BackgroundParticle()); // Create background particles
 
 function animate() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  backgroundParticles.forEach(particle => {
+    particle.update();
+    particle.draw();
+  });
+
   if (isDragging && isInActiveArea) {
-    let dx = mouseX - logoX;
-    let dy = mouseY - logoY;
+    const dx = mouseX - logoX;
+    const dy = mouseY - logoY;
     logoX += dx * delay;
     logoY += dy * delay;
-    emitParticles(logoX, logoY);
-  }
 
-  logo.style.left = `${logoX}px`;
-  logo.style.top = `${logoY}px`;
+    emitParticles(logoX + 75, logoY + 75); // Emit particles behind the logo
+  }
 
   particles = particles.filter(p => p.alpha > 0);
   particles.forEach(p => {
     p.update();
     p.draw();
   });
+
+  logo.style.left = `${logoX}px`;
+  logo.style.top = `${logoY}px`;
 
   requestAnimationFrame(animate);
 }
@@ -188,3 +258,58 @@ window.addEventListener('resize', () => {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 });
+
+canvas.style.zIndex = "3"; // Ensure canvas is behind the logo image
+
+const starsCanvas = document.createElement('canvas');
+starsCanvas.id = 'starsCanvas';
+starsCanvas.width = window.innerWidth;
+starsCanvas.height = window.innerHeight;
+document.body.appendChild(starsCanvas);
+
+const starsCtx = starsCanvas.getContext('2d');
+
+class Star {
+  constructor() {
+    this.x = Math.random() * starsCanvas.width;
+    this.y = Math.random() * starsCanvas.height;
+    this.radius = Math.random() * 2 + 0.5; // Small faint stars
+    this.alpha = Math.random() * 0.5 + 0.1; // Low opacity
+    this.alphaChange = (Math.random() * 0.02 - 0.01); // Twinkling effect
+  }
+
+  draw() {
+    starsCtx.beginPath();
+    starsCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    starsCtx.fillStyle = `rgba(255, 255, 255, ${this.alpha})`;
+    starsCtx.fill();
+  }
+
+  update() {
+    this.alpha += this.alphaChange;
+    if (this.alpha <= 0.1 || this.alpha >= 0.5) {
+      this.alphaChange *= -1; // Reverse direction of twinkling
+    }
+    
+    // Reset position when out of view
+    if (this.y - this.radius > starsCanvas.height) {
+      this.y = -this.radius; // Reset to top when it goes out of view
+      this.x = Math.random() * starsCanvas.width; // Randomize x position
+    }
+  }
+}
+
+const stars = Array.from({ length: 100 }, () => new Star()); // Create stars
+
+function animateStars() {
+  starsCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
+
+  stars.forEach(star => {
+    star.update();
+    star.draw();
+  });
+
+  requestAnimationFrame(animateStars);
+}
+
+animateStars();
