@@ -60,11 +60,18 @@ class Particle {
   }
 }
 
+let previousMouseX = 0;
+
 function emitParticles(x, y) {
+  const movingRight = mouseX > previousMouseX;
+  const offsetX = movingRight ? -130 : 0; // Adjust origin based on movement direction
+
   for (let i = 0; i < 5; i++) {
     const offsetY = Math.random() * 50 - 25; // Random vertical offset within 50px range
-    particles.push(new Particle(x - 10, y + offsetY)); // Move emission source 20px right
+    particles.push(new Particle(x + offsetX - 10, y + offsetY)); // Adjust emission source
   }
+
+  previousMouseX = mouseX; // Update previous mouse position
 }
 
 document.addEventListener('mousemove', (e) => {
