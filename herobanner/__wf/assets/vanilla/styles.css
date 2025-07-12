@@ -64,6 +64,12 @@ body {
   z-index: 6;
 }
 
+#shootingStarCanvas {
+  z-index: 10;
+  position: absolute;
+  pointer-events: none;
+}
+
 #starsCanvas {
   position: absolute;
   top: 0;

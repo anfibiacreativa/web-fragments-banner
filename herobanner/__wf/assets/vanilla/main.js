@@ -194,7 +194,7 @@ class BackgroundParticle {
   constructor() {
     this.x = Math.random() * canvas.width;
     this.y = Math.random() * canvas.height;
-    this.radius = Math.random() * 50 + 10; // Random diameter
+    this.radius = Math.random() * 30 + 5; // Reduced diameter range
     this.color = colors[Math.floor(Math.random() * colors.length)];
     this.alpha = Math.random() * 0.1 + 0.05; // Lower opacity
     this.dy = Math.random() * 0.5 + 0.1; // Slow floating speed
@@ -320,3 +320,74 @@ function animateStars() {
 }
 
 animateStars();
+
+const shootingStarCanvas = document.createElement('canvas');
+shootingStarCanvas.id = 'shootingStarCanvas';
+shootingStarCanvas.width = window.innerWidth;
+shootingStarCanvas.height = window.innerHeight;
+document.body.appendChild(shootingStarCanvas);
+
+const shootingStarCtx = shootingStarCanvas.getContext('2d');
+
+class ShootingStar {
+  constructor() {
+    this.x = Math.random() * shootingStarCanvas.width; // Random horizontal position
+    this.y = 0; // Always start at the top
+    const angle = Math.random() * Math.PI / 2 + Math.PI / 4; // Random angle between 45° and 135°
+    this.dx = Math.cos(angle) * (Math.random() * 5 + 2); // Horizontal speed based on angle
+    this.dy = Math.sin(angle) * (Math.random() * 5 + 2); // Vertical speed based on angle
+    this.radius = Math.random() * 3 + 2; // Size of the star
+    this.alpha = 1; // Initial opacity
+    this.tailLength = 20; // Length of the tail
+  }
+
+  draw() {
+    // Draw the tail
+    const gradient = shootingStarCtx.createLinearGradient(this.x, this.y, this.x - this.dx * this.tailLength, this.y - this.dy * this.tailLength);
+    gradient.addColorStop(0, `rgba(255, 255, 255, ${this.alpha})`);
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+    shootingStarCtx.beginPath();
+    shootingStarCtx.moveTo(this.x, this.y);
+    shootingStarCtx.lineTo(this.x - this.dx * this.tailLength, this.y - this.dy * this.tailLength);
+    shootingStarCtx.strokeStyle = gradient;
+    shootingStarCtx.lineWidth = this.radius;
+    shootingStarCtx.stroke();
+
+    // Draw the star
+    shootingStarCtx.beginPath();
+    shootingStarCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    shootingStarCtx.fillStyle = `rgba(255, 255, 255, ${this.alpha})`;
+    shootingStarCtx.fill();
+  }
+
+  update() {
+    this.x += this.dx;
+    this.y += this.dy;
+    this.alpha -= 0.02; // Fade out
+  }
+}
+
+let shootingStar = null;
+
+function animateShootingStar() {
+  shootingStarCtx.clearRect(0, 0, shootingStarCanvas.width, shootingStarCanvas.height);
+
+  if (shootingStar) {
+    shootingStar.update();
+    shootingStar.draw();
+
+    if (shootingStar.alpha <= 0) {
+      shootingStar = null; // Remove the star after it fades out
+    }
+  }
+
+  requestAnimationFrame(animateShootingStar);
+}
+
+function spawnShootingStar() {
+  shootingStar = new ShootingStar();
+}
+
+setInterval(spawnShootingStar, 6000);
+animateShootingStar();
