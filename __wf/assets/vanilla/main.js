@@ -453,3 +453,28 @@ activeArea.addEventListener('touchend', (e) => {
   }
   lastTapTime = now;
 });
+
+// Add touchmove event to create trails while moving
+activeArea.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  
+  if (isDragging) {
+    const touch = e.touches[0];
+    const touchX = touch.clientX;
+    const touchY = touch.clientY;
+    
+    // Gradually move towards touch position (similar to mouse movement)
+    const dx = touchX - logoX - logo.offsetWidth / 2;
+    const dy = touchY - logoY - logo.offsetHeight / 2;
+    
+    logoX += dx * delay;
+    logoY += dy * delay;
+    
+    // Emit particles for the trail effect
+    emitParticles(logoX + 75, logoY + 75);
+    
+    // Update logo position
+    logo.style.left = `${logoX}px`;
+    logo.style.top = `${logoY}px`;
+  }
+});
