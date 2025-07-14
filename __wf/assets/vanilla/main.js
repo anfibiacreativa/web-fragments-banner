@@ -391,3 +391,65 @@ function spawnShootingStar() {
 
 setInterval(spawnShootingStar, 6000);
 animateShootingStar();
+
+function isTouchDevice() {
+  return (('ontouchstart' in window) ||
+     (navigator.maxTouchPoints > 0) ||
+     (navigator.msMaxTouchPoints > 0));
+}
+
+// Update tooltip text based on device type
+function updateTooltipText() {
+  if (tooltip) {
+    tooltip.textContent = isTouchDevice() 
+      ? 'Hi! Double tap anywhere. I\'m a web-fragment'
+      : 'Hi! Hover me! I\'m a web-fragment';
+  }
+}
+
+// Call the function immediately
+updateTooltipText();
+
+// Add touch events for mobile devices
+activeArea.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+
+  const bounds = activeArea.getBoundingClientRect();
+  const touch = e.touches[0];
+  const touchX = touch.clientX;
+  const touchY = touch.clientY;
+
+  if (touchY >= bounds.top && touchY <= bounds.bottom && touchX >= bounds.left && touchX <= bounds.right) {
+    isDragging = true;
+    tooltip.style.display = 'none';
+
+    logoX = touchX - logo.offsetWidth / 2;
+    logoY = touchY - logo.offsetHeight / 2;
+    logo.style.left = `${logoX}px`;
+    logo.style.top = `${logoY}px`;
+  }
+});
+
+let lastTapTime = 0;
+
+activeArea.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  if (now - lastTapTime < 300) { // Double tap detected
+    const bounds = activeArea.getBoundingClientRect();
+    const touch = e.changedTouches[0];
+    const touchX = touch.clientX;
+    const touchY = touch.clientY;
+
+    if (touchY >= bounds.top && touchY <= bounds.bottom && touchX >= bounds.left && touchX <= bounds.right) {
+      logoX = touchX - logo.offsetWidth / 2;
+      logoY = touchY - logo.offsetHeight / 2;
+      logo.style.left = `${logoX}px`;
+      logo.style.top = `${logoY}px`;
+
+      emitParticles(logoX + 75, logoY + 75);
+      isFalling = true;
+      fallBounce();
+    }
+  }
+  lastTapTime = now;
+});
