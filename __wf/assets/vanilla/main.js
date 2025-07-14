@@ -402,7 +402,7 @@ function isTouchDevice() {
 function updateTooltipText() {
   if (tooltip) {
     tooltip.textContent = isTouchDevice() 
-      ? 'Hi! Double tap anywhere. I\'m a web-fragment'
+      ? 'Hi! Drag me around. I\'m a web-fragment'
       : 'Hi! Hover me! I\'m a web-fragment';
   }
 }
