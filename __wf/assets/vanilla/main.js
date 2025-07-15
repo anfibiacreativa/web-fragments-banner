@@ -27,11 +27,14 @@ class Particle {
   constructor(x, y) {
     this.x = x;
     this.y = y;
-    this.radius = Math.random() * 4 + 1;
+    this.radius = Math.random() * 4 + 1; // This will be overridden in emitParticles
     this.color = colors[Math.floor(Math.random() * colors.length)];
     this.alpha = 1;
-    this.dx = (Math.random() - 0.5) * 2;
-    this.dy = (Math.random() - 0.5) * 2;
+    // Reduce base particle speed slightly for more controlled movement
+    this.dx = (Math.random() - 0.5) * 1.5;
+    this.dy = (Math.random() - 0.5) * 1.5;
+    // Add a property for alpha decay rate
+    this.alphaDecay = 0.012; // Slower fade out (was 0.02)
   }
 
   draw() {
@@ -60,19 +63,54 @@ class Particle {
   update() {
     this.x += this.dx;
     this.y += this.dy;
-    this.alpha -= 0.02;
+    this.alpha -= this.alphaDecay; // Use the custom decay rate
   }
 }
 
 let previousMouseX = 0;
 
 function emitParticles(x, y) {
-  const movingRight = mouseX > previousMouseX;
-  const offsetX = movingRight ? -130 : 0; // Adjust origin based on movement direction
-
-  for (let i = 0; i < 5; i++) {
-    const offsetY = Math.random() * 50 - 25; // Random vertical offset within 50px range
-    particles.push(new Particle(x + offsetX, y + offsetY)); // Emission source behind logo
+  // Simplified emission - always from center
+  let emissionX = x; // Always emit from center X
+  let emissionY = y; // Always emit from center Y
+  
+  // Calculate movement for particle behavior only (not position)
+  const dx = mouseX - previousMouseX;
+  const dy = mouseY - logoY;
+  
+  let emissionAreaSize = 80; // Default emission area size
+  let isIdle = false;
+  
+  // Only use movement to determine if we're idle
+  if (Math.abs(dx) < 2 && Math.abs(dy) < 2) {
+    isIdle = true;
+    emissionAreaSize = 100; // Bigger area when idle
+  }
+  
+  // Create particles with smaller size in a circular area around center
+  const particleCount = isIdle ? 3 : 5; // Fewer particles when idle
+  
+  for (let i = 0; i < particleCount; i++) {
+    // Create circular distribution using angle and distance from center
+    const angle = Math.random() * Math.PI * 2; // Random angle (0-360 degrees)
+    const distance = Math.random() * (emissionAreaSize/2); // Random distance from center
+    const offsetX = Math.cos(angle) * distance;
+    const offsetY = Math.sin(angle) * distance;
+    
+    // Create particle with position within the circular emission area
+    const particle = new Particle(emissionX + offsetX, emissionY + offsetY);
+    
+    // Make particles smaller
+    particle.radius = Math.random() * 3 + 0.5; // Smaller radius
+    
+    // When idle, make particles drift more gently
+    if (isIdle) {
+      particle.dx *= 0.7;
+      particle.dy *= 0.7;
+      particle.alphaDecay = 0.008; // Even slower fade for idle particles
+    }
+    
+    particles.push(particle);
   }
 
   previousMouseX = mouseX; // Update previous mouse position
@@ -171,7 +209,7 @@ function fallBounce() {
         const offsetX = Math.cos(angle) * radius;
         const offsetY = Math.sin(angle) * radius;
         const particle = new Particle(logoX + offsetX, bounceY + offsetY);
-        particle.radius = Math.random() * 10 + 1; // Wider range of sizes, including smaller ones
+        particle.radius = Math.random() * 3 + 0.5; // Same size as regular particles
         particle.alpha = Math.random() * 0.8 + 0.2; // Varying initial opacity
         particle.alphaDecay = 0.008; // Lingering longer
         particles.push(particle);
@@ -251,10 +289,20 @@ function animate() {
     // Calculate center of the logo for consistent particle emission
     const logoWidth = logo.offsetWidth;
     const logoHeight = logo.offsetHeight;
-    const centerX = logoX + logoWidth / 2;
+    const centerX = logoX + logoWidth / 2 - 75; // Adjusted for better centering
     const centerY = logoY + logoHeight / 2;
     
-    emitParticles(centerX, centerY); // Emit particles from the center of the logo
+    // Emit particles at a rate based on movement
+    const isMoving = Math.abs(dx) > 1 || Math.abs(dy) > 1;
+    if (isMoving) {
+      emitParticles(centerX, centerY); // Emit particles from center when moving
+    } else {
+      // When barely moving, emit particles less frequently
+      if (Math.random() < 0.05) { // Only about 5% of frames
+        previousMouseX = centerX; // Update previous position
+        emitParticles(centerX, centerY);
+      }
+    }
   }
 
   particles = particles.filter(p => p.alpha > 0);
@@ -493,6 +541,8 @@ activeArea.addEventListener('touchend', (e) => {
       const centerX = logoX + logoWidth / 2;
       const centerY = logoY + logoHeight / 2;
       
+      // Emit particles from center
+      previousMouseX = centerX;
       emitParticles(centerX, centerY);
       isFalling = true;
       fallBounce();
@@ -540,6 +590,7 @@ activeArea.addEventListener('touchmove', (e) => {
     const centerX = logoX + logoWidth / 2;
     const centerY = logoY + logoHeight / 2;
     
+    // Use touch movement data for emission
     emitParticles(centerX, centerY);
     
     // Update logo position
