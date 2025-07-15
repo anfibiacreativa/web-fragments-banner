@@ -7,6 +7,10 @@ const activeArea = document.getElementById('activeArea');
 const logo = document.getElementById('logo');
 const tooltip = document.getElementById('tooltip');
 
+// Ensure logo is above all canvases
+logo.style.position = 'absolute'; // Make sure position is absolute
+logo.style.zIndex = '10'; // Higher z-index than all canvases
+
 let isDragging = false;
 let isInActiveArea = false;
 let isFalling = false;
@@ -68,7 +72,7 @@ function emitParticles(x, y) {
 
   for (let i = 0; i < 5; i++) {
     const offsetY = Math.random() * 50 - 25; // Random vertical offset within 50px range
-    particles.push(new Particle(x + offsetX - 10, y + offsetY)); // Adjust emission source
+    particles.push(new Particle(x + offsetX, y + offsetY)); // Emission source behind logo
   }
 
   previousMouseX = mouseX; // Update previous mouse position
@@ -244,7 +248,13 @@ function animate() {
     logoX += dx * delay;
     logoY += dy * delay;
 
-    emitParticles(logoX + 75, logoY + 75); // Emit particles behind the logo
+    // Calculate center of the logo for consistent particle emission
+    const logoWidth = logo.offsetWidth;
+    const logoHeight = logo.offsetHeight;
+    const centerX = logoX + logoWidth / 2;
+    const centerY = logoY + logoHeight / 2;
+    
+    emitParticles(centerX, centerY); // Emit particles from the center of the logo
   }
 
   particles = particles.filter(p => p.alpha > 0);
@@ -266,13 +276,14 @@ window.addEventListener('resize', () => {
   canvas.height = window.innerHeight;
 });
 
-canvas.style.zIndex = "3"; // Ensure canvas is behind the logo image
+canvas.style.zIndex = "1"; // Set a lower z-index to ensure canvas is behind the logo image
 
 const starsCanvas = document.createElement('canvas');
 starsCanvas.id = 'starsCanvas';
 starsCanvas.width = window.innerWidth;
 starsCanvas.height = window.innerHeight;
 document.body.appendChild(starsCanvas);
+starsCanvas.style.zIndex = "0"; // Set stars canvas below main canvas
 
 const starsCtx = starsCanvas.getContext('2d');
 
@@ -326,6 +337,7 @@ shootingStarCanvas.id = 'shootingStarCanvas';
 shootingStarCanvas.width = window.innerWidth;
 shootingStarCanvas.height = window.innerHeight;
 document.body.appendChild(shootingStarCanvas);
+shootingStarCanvas.style.zIndex = "0"; // Set shooting star canvas below main canvas
 
 const shootingStarCtx = shootingStarCanvas.getContext('2d');
 
@@ -431,26 +443,62 @@ activeArea.addEventListener('touchstart', (e) => {
 });
 
 let lastTapTime = 0;
+let wasDragging = false; // Track if the user was dragging before touchend
 
 activeArea.addEventListener('touchend', (e) => {
   const now = Date.now();
-  if (now - lastTapTime < 300) { // Double tap detected
-    const bounds = activeArea.getBoundingClientRect();
-    const touch = e.changedTouches[0];
-    const touchX = touch.clientX;
-    const touchY = touch.clientY;
-
+  const touch = e.changedTouches[0];
+  const touchX = touch.clientX;
+  const touchY = touch.clientY;
+  const bounds = activeArea.getBoundingClientRect();
+  
+  // Store current dragging state and reset it
+  wasDragging = isDragging;
+  
+  // If user was dragging and released finger, apply bounce effect
+  if (wasDragging) {
+    isDragging = false;
+    
+    // Check if touch ended outside the active area
+    const outsideActiveArea = touchY < bounds.top || touchY > bounds.bottom || 
+                              touchX < bounds.left || touchX > bounds.right;
+    
+    if (outsideActiveArea) {
+      mouseX = touchX; // Set mouseX/Y for fallBounce calculation
+      mouseY = touchY;
+      isFalling = true;
+      fallBounce();
+    } else {
+      // If inside area but stopped dragging, just emit some particles
+      // Calculate center of the logo for consistent particle emission
+      const logoWidth = logo.offsetWidth;
+      const logoHeight = logo.offsetHeight;
+      const centerX = logoX + logoWidth / 2;
+      const centerY = logoY + logoHeight / 2;
+      
+      emitParticles(centerX, centerY);
+    }
+  } 
+  // Double tap detection (only if we weren't dragging)
+  else if (now - lastTapTime < 300) { 
     if (touchY >= bounds.top && touchY <= bounds.bottom && touchX >= bounds.left && touchX <= bounds.right) {
       logoX = touchX - logo.offsetWidth / 2;
       logoY = touchY - logo.offsetHeight / 2;
       logo.style.left = `${logoX}px`;
       logo.style.top = `${logoY}px`;
 
-      emitParticles(logoX + 75, logoY + 75);
+      // Calculate center of the logo for consistent particle emission
+      const logoWidth = logo.offsetWidth;
+      const logoHeight = logo.offsetHeight;
+      const centerX = logoX + logoWidth / 2;
+      const centerY = logoY + logoHeight / 2;
+      
+      emitParticles(centerX, centerY);
       isFalling = true;
       fallBounce();
     }
   }
+  
   lastTapTime = now;
 });
 
@@ -463,6 +511,21 @@ activeArea.addEventListener('touchmove', (e) => {
     const touchX = touch.clientX;
     const touchY = touch.clientY;
     
+    // Check if touch is still within active area
+    const bounds = activeArea.getBoundingClientRect();
+    const withinActiveArea = touchY >= bounds.top && touchY <= bounds.bottom &&
+                             touchX >= bounds.left && touchX <= bounds.right;
+    
+    if (!withinActiveArea) {
+      // If touch goes outside active area, trigger bounce animation
+      isDragging = false;
+      isFalling = true;
+      mouseX = touchX; // Set mouseX/Y for fallBounce calculation
+      mouseY = touchY;
+      fallBounce();
+      return;
+    }
+    
     // Gradually move towards touch position (similar to mouse movement)
     const dx = touchX - logoX - logo.offsetWidth / 2;
     const dy = touchY - logoY - logo.offsetHeight / 2;
@@ -471,7 +534,13 @@ activeArea.addEventListener('touchmove', (e) => {
     logoY += dy * delay;
     
     // Emit particles for the trail effect
-    emitParticles(logoX + 75, logoY + 75);
+    // Calculate center of the logo for consistent particle emission
+    const logoWidth = logo.offsetWidth;
+    const logoHeight = logo.offsetHeight;
+    const centerX = logoX + logoWidth / 2;
+    const centerY = logoY + logoHeight / 2;
+    
+    emitParticles(centerX, centerY);
     
     // Update logo position
     logo.style.left = `${logoX}px`;
