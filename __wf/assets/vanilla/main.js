@@ -84,7 +84,7 @@ function emitParticles(x, y) {
   // Only use movement to determine if we're idle
   if (Math.abs(dx) < 2 && Math.abs(dy) < 2) {
     isIdle = true;
-    emissionAreaSize = 100; // Bigger area when idle
+    emissionAreaSize = 120; // Bigger area when idle
   }
   
   // Create particles with smaller size in a circular area around center
@@ -118,13 +118,26 @@ function emitParticles(x, y) {
 
 document.addEventListener('mousemove', (e) => {
   const bounds = activeArea.getBoundingClientRect();
+
+  // Update mouse position
   mouseX = e.clientX;
   mouseY = e.clientY;
 
-  const withinActiveArea = mouseY >= bounds.top && mouseY <= bounds.bottom;
-  isInActiveArea = withinActiveArea;
+  // Check if within vertical bounds
+  const withinVerticalBounds = mouseY >= bounds.top && mouseY <= bounds.bottom;
+  // Check if within horizontal bounds
+  const withinHorizontalBounds = mouseX >= bounds.left && mouseX <= bounds.right;
 
-  if (!isInActiveArea && isDragging) {
+  // Trigger bounce to center if outside horizontal bounds
+  if (!withinHorizontalBounds) {
+    bounceToCenter();
+  }
+
+  // Consider within active area only if within vertical bounds
+  isInActiveArea = withinVerticalBounds;
+
+  // Trigger bounce if outside vertical bounds or horizontal bounds
+  if ((!withinVerticalBounds || !withinHorizontalBounds) && isDragging) {
     isDragging = false;
     isFalling = true;
     fallBounce();
@@ -146,34 +159,80 @@ logo.addEventListener('click', () => {
 
 function fallBounce() {
   const logoHeight = logo.offsetHeight;
+  const logoWidth = logo.offsetWidth;
   const areaBounds = activeArea.getBoundingClientRect();
   const areaBottom = areaBounds.bottom;
   const areaTop = areaBounds.top;
+  const areaLeft = areaBounds.left;
+  const areaRight = areaBounds.right;
+  
+  // Determine bounce direction
   const mouseNearBottom = mouseY > areaBottom - logoHeight;
-
+  const mouseNearTop = mouseY < areaTop;
+  const mouseNearLeft = mouseX < areaLeft;
+  const mouseNearRight = mouseX > areaRight - logoWidth;
+  
+  // Check if we're bouncing horizontally or vertically
+  const isHorizontalBounce = mouseNearLeft || mouseNearRight;
+  
+  // Setup bounce variables
   let bounceY = logoY;
-  let velocity = mouseNearBottom ? -18 : 0;
+  let bounceX = logoX;
+  let velocityY = mouseNearBottom ? -18 : (mouseNearTop ? 18 : 0);
+  let velocityX = 0;
+  
+  if (isHorizontalBounce) {
+    velocityX = mouseNearLeft ? 18 : -18; // Push right if near left, left if near right
+  }
+  
   const gravity = mouseNearBottom ? -0.6 : 0.7;
+  const horizontalDrag = 0.8; // Drag factor for horizontal movement
   const damping = 0.6;
 
-  const targetFloor = mouseNearBottom
+  // Calculate target positions
+  const targetFloorY = mouseNearBottom
     ? areaTop + 90
     : areaBottom - logoHeight - 10;
+    
+  const targetFloorX = mouseNearLeft
+    ? areaLeft + 10
+    : mouseNearRight ? areaRight - logoWidth - 10 : bounceX;
 
   let bounceOnce = false;
 
   function drop() {
-    velocity += gravity;
-    bounceY += velocity;
-
+    // Update vertical position with gravity
+    velocityY += gravity;
+    bounceY += velocityY;
+    
+    // Update horizontal position with drag (slows down over time)
+    bounceX += velocityX;
+    velocityX *= horizontalDrag; // Apply drag to slow down horizontal movement
+    
+    // Handle vertical bounce
     if (mouseNearBottom) {
-      if (bounceY <= targetFloor) {
-        bounceY = targetFloor;
-        velocity *= -damping;
+      if (bounceY <= targetFloorY) {
+        bounceY = targetFloorY;
+        velocityY *= -damping;
 
-        if (Math.abs(velocity) < 1) {
+        if (Math.abs(velocityY) < 1) {
           if (!bounceOnce) {
-            velocity = 6;
+            velocityY = 6;
+            bounceOnce = true;
+          } else {
+            finishBounce();
+            return;
+          }
+        }
+      }
+    } else if (mouseNearTop) {
+      if (bounceY >= targetFloorY) {
+        bounceY = targetFloorY;
+        velocityY *= -damping;
+        
+        if (Math.abs(velocityY) < 1) {
+          if (!bounceOnce) {
+            velocityY = -8;
             bounceOnce = true;
           } else {
             finishBounce();
@@ -182,13 +241,14 @@ function fallBounce() {
         }
       }
     } else {
-      if (bounceY >= targetFloor) {
-        bounceY = targetFloor;
-        velocity *= -damping;
+      // Normal vertical bounce (same as before)
+      if (bounceY >= targetFloorY) {
+        bounceY = targetFloorY;
+        velocityY *= -damping;
 
-        if (Math.abs(velocity) < 1) {
+        if (Math.abs(velocityY) < 1) {
           if (!bounceOnce) {
-            velocity = -8;
+            velocityY = -8;
             bounceOnce = true;
           } else {
             finishBounce();
@@ -197,9 +257,28 @@ function fallBounce() {
         }
       }
     }
+    
+    // Handle horizontal bounce
+    if (mouseNearLeft) {
+      if (bounceX >= targetFloorX) {
+        bounceX = targetFloorX;
+        velocityX *= -damping;
+      }
+    } else if (mouseNearRight) {
+      if (bounceX <= targetFloorX) {
+        bounceX = targetFloorX;
+        velocityX *= -damping;
+      }
+    }
 
+    // Update logo position
     logo.style.top = `${bounceY}px`;
+    logo.style.left = `${bounceX}px`;
     logoY = bounceY;
+    logoX = bounceX;
+    
+    // Update tooltip position class
+    updateTooltipPosition();
 
     if (mouseNearBottom && !bounceOnce) {
       bounceOnce = true; // Ensure particles eject only once
@@ -220,10 +299,21 @@ function fallBounce() {
   }
 
   function finishBounce() {
-    logo.style.top = `${targetFloor}px`;
-    logoY = targetFloor;
+    // Set final position
+    logo.style.top = `${targetFloorY}px`;
+    logoY = targetFloorY;
+    
+    // Also set final horizontal position if needed
+    if (isHorizontalBounce) {
+      logo.style.left = `${targetFloorX}px`;
+      logoX = targetFloorX;
+    }
+    
     isFalling = false;
 
+    // Update tooltip position class
+    updateTooltipPosition();
+    
     tooltip.style.display = "block";
     tooltip.style.opacity = "1";
     tooltip.style.transform = "translate(0, 50%)";
@@ -313,6 +403,9 @@ function animate() {
 
   logo.style.left = `${logoX}px`;
   logo.style.top = `${logoY}px`;
+  
+  // Update tooltip position class based on logo position
+  updateTooltipPosition();
 
   requestAnimationFrame(animate);
 }
@@ -322,6 +415,9 @@ animate();
 window.addEventListener('resize', () => {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+  
+  // Update tooltip position class after resize
+  updateTooltipPosition();
 });
 
 canvas.style.zIndex = "1"; // Set a lower z-index to ensure canvas is behind the logo image
@@ -384,8 +480,7 @@ const shootingStarCanvas = document.createElement('canvas');
 shootingStarCanvas.id = 'shootingStarCanvas';
 shootingStarCanvas.width = window.innerWidth;
 shootingStarCanvas.height = window.innerHeight;
-document.body.appendChild(shootingStarCanvas);
-shootingStarCanvas.style.zIndex = "0"; // Set shooting star canvas below main canvas
+document.body.appendChild(shootingStarCanvas);// Set shooting star canvas below main canvas
 
 const shootingStarCtx = shootingStarCanvas.getContext('2d');
 
@@ -563,8 +658,9 @@ activeArea.addEventListener('touchmove', (e) => {
     
     // Check if touch is still within active area
     const bounds = activeArea.getBoundingClientRect();
-    const withinActiveArea = touchY >= bounds.top && touchY <= bounds.bottom &&
-                             touchX >= bounds.left && touchX <= bounds.right;
+    const withinVerticalBounds = touchY >= bounds.top && touchY <= bounds.bottom;
+    const withinHorizontalBounds = touchX >= bounds.left && touchX <= bounds.right;
+    const withinActiveArea = withinVerticalBounds && withinHorizontalBounds;
     
     if (!withinActiveArea) {
       // If touch goes outside active area, trigger bounce animation
@@ -596,5 +692,53 @@ activeArea.addEventListener('touchmove', (e) => {
     // Update logo position
     logo.style.left = `${logoX}px`;
     logo.style.top = `${logoY}px`;
+    
+    // Update tooltip position class for touch movement
+    updateTooltipPosition();
   }
 });
+
+// Function to check logo position and update tooltip class
+function updateTooltipPosition() {
+  const viewportWidth = window.innerWidth;
+  const logoWidth = logo.offsetWidth;
+  const logoCenter = logoX + (logoWidth / 2);
+  const isOnLeftHalf = logoCenter < (viewportWidth / 2);
+
+  // Add or remove 'right' class based on position
+  if (isOnLeftHalf) {
+    tooltip.classList.add('right');
+  } else {
+    tooltip.classList.remove('right');
+  }
+}
+
+// Call updateTooltipPosition initially
+updateTooltipPosition();
+
+// Function to handle bounce back to center when outside horizontal bounds
+function bounceToCenter() {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const logoWidth = logo.offsetWidth;
+  const logoHeight = logo.offsetHeight;
+
+  // Check if logo is outside horizontal bounds
+  if (logoX < 0 || logoX + logoWidth > viewportWidth) {
+    // Calculate center position
+    const centerX = (viewportWidth - logoWidth) / 2;
+    const centerY = (viewportHeight - logoHeight) / 2;
+
+    // Smoothly move logo to center
+    logo.style.transition = "left 0.5s ease, top 0.5s ease";
+    logo.style.left = `${centerX}px`;
+    logo.style.top = `${centerY}px`;
+
+    // Update logo position variables
+    logoX = centerX;
+    logoY = centerY;
+    
+    // Update tooltip position class
+    updateTooltipPosition();
+  }
+}
