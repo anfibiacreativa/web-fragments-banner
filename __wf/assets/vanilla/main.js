@@ -371,16 +371,21 @@ function animate() {
   });
 
   if (isDragging && isInActiveArea) {
-    const dx = mouseX - logoX;
-    const dy = mouseY - logoY;
+    // Calculate where the logo should be positioned so its center is at the mouse position
+    const logoWidth = logo.offsetWidth;
+    const logoHeight = logo.offsetHeight;
+    const targetX = mouseX - (logoWidth / 2);
+    const targetY = mouseY - (logoHeight / 2);
+    
+    // Smoothly move toward the target position
+    const dx = targetX - logoX;
+    const dy = targetY - logoY;
     logoX += dx * delay;
     logoY += dy * delay;
 
     // Calculate center of the logo for consistent particle emission
-    const logoWidth = logo.offsetWidth;
-    const logoHeight = logo.offsetHeight;
-    const centerX = logoX + logoWidth / 2 - 75; // Adjusted for better centering
-    const centerY = logoY + logoHeight / 2;
+    const centerX = logoX + (logoWidth / 2); // Proper center calculation
+    const centerY = logoY + (logoHeight / 2);
     
     // Emit particles at a rate based on movement
     const isMoving = Math.abs(dx) > 1 || Math.abs(dy) > 1;
@@ -427,7 +432,7 @@ starsCanvas.id = 'starsCanvas';
 starsCanvas.width = window.innerWidth;
 starsCanvas.height = window.innerHeight;
 document.body.appendChild(starsCanvas);
-starsCanvas.style.zIndex = "0"; // Set stars canvas below main canvas
+
 
 const starsCtx = starsCanvas.getContext('2d');
 
@@ -615,7 +620,7 @@ activeArea.addEventListener('touchend', (e) => {
       // If inside area but stopped dragging, just emit some particles
       // Calculate center of the logo for consistent particle emission
       const logoWidth = logo.offsetWidth;
-      const logoHeight = logo.offsetHeight;
+      const logoHeight = logo.offsetHeight; 
       const centerX = logoX + logoWidth / 2;
       const centerY = logoY + logoHeight / 2;
       
@@ -672,17 +677,21 @@ activeArea.addEventListener('touchmove', (e) => {
       return;
     }
     
-    // Gradually move towards touch position (similar to mouse movement)
-    const dx = touchX - logoX - logo.offsetWidth / 2;
-    const dy = touchY - logoY - logo.offsetHeight / 2;
+    // Calculate target position so logo center follows touch position
+    const logoWidth = logo.offsetWidth;
+    const logoHeight = logo.offsetHeight;
+    const targetX = touchX - (logoWidth / 2);
+    const targetY = touchY - (logoHeight / 2);
     
+    // Smoothly move toward the target position
+    const dx = targetX - logoX;
+    const dy = targetY - logoY;
     logoX += dx * delay;
     logoY += dy * delay;
     
     // Emit particles for the trail effect
     // Calculate center of the logo for consistent particle emission
-    const logoWidth = logo.offsetWidth;
-    const logoHeight = logo.offsetHeight;
+    // Reuse the logoWidth and logoHeight variables
     const centerX = logoX + logoWidth / 2;
     const centerY = logoY + logoHeight / 2;
     
